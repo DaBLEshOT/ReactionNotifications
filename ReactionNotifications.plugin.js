@@ -57,7 +57,7 @@ module.exports = (() => {
     } : (([Plugin, Api]) => {
         const plugin = (Plugin, Library) => {
 
-    const { Logger, WebpackModules, DiscordAPI } = Library;
+    const { WebpackModules, DiscordAPI } = Library;
 
     return class ReactionNotifications extends Plugin {
         constructor() {
@@ -65,35 +65,40 @@ module.exports = (() => {
 
             this.users = [];
             this.currentUser = null
-            this.sound = null;
-
+            
             this.cancelPatch = null;
-
-            this.transitionTo = WebpackModules.getByProps('transitionTo').transitionTo
+            this.sound = WebpackModules.getByProps("playSound");
+            this.transitionTo = WebpackModules.getByProps("transitionTo").transitionTo;
         }
+
 
         onStart() {
             this.users = DiscordAPI.users;
             this.currentUser = DiscordAPI.currentUser;
 
-            this.sound = WebpackModules.getByProps("playSound");
             this.cancelPatch = BdApi.monkeyPatch(WebpackModules.getByProps("dispatch"), "dispatch", { after: this.dispatch.bind(this) });
         }
 
         dispatch(data) {
             if (data.methodArguments[0].type == "MESSAGE_REACTION_ADD") {
-                Logger.log(data);
                 const messageUserId = data.methodArguments[0].userId;
                 const emoji = data.methodArguments[0].emoji;
-                
-                if (messageUserId == this.currentUser.discordObject.id) {
+
+                if (messageUserId != this.currentUser.discordObject.id) {
                     const reactionUser = this.users.find(user => user.discordObject.id == messageUserId);
                     this.sound.playSound("message1", 0.4);
-                    Logger.log(data);
 
-                    const notification = new Notification(`Reaction`, { body: `${reactionUser.discordObject.username} reacted with ${emoji.name}`, silent: true });
-                    notification.addEventListener("click", () => { this.goToMessage("", data.methodArguments[0].channelId, data.methodArguments[0].messageId) });
-                    
+                    const notification = new Notification(
+                        `${reactionUser.discordObject.username} reacted with ${emoji.name}`,
+                        {
+                            body: "Click to see the message",
+                            silent: true,
+                            icon: this.getAvatar(reactionUser.discordObject.id, reactionUser.discordObject.avatar)
+                        }
+                    );
+                    notification.addEventListener("click", () => {
+                        this.goToMessage("", data.methodArguments[0].channelId, data.methodArguments[0].messageId)
+                    });
                 }
             }
         }
@@ -102,6 +107,10 @@ module.exports = (() => {
             require("plugins/ReactionNotifications/electron").remote.getCurrentWindow().focus();
             this.transitionTo(`/channels/${server ? server : '@me'}/${channel}/${message}`);
             requestAnimationFrame(() => this.transitionTo(`/channels/${server ? server : '@me'}/${channel}/${message}`));
+        }
+
+        getAvatar(userID, avatarID) {
+            return `https://cdn.discordapp.com/avatars/${userID}/${avatarID}.png?size=128`
         }
 
         onStop() {
