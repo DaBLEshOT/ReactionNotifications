@@ -83,6 +83,7 @@ module.exports = (() => {
             if (data.methodArguments[0].type == "MESSAGE_REACTION_ADD") {
                 const messageUserId = data.methodArguments[0].userId;
                 const emoji = data.methodArguments[0].emoji;
+                
 
                 if (messageUserId != this.currentUser.discordObject.id) {
                     const reactionUser = this.users.find(user => user.discordObject.id == messageUserId);
@@ -104,7 +105,7 @@ module.exports = (() => {
         }
 
         goToMessage(server, channel, message) {
-            require("plugins/ReactionNotifications/electron").remote.getCurrentWindow().focus();
+            require("electron").remote.getCurrentWindow().focus();
             this.transitionTo(`/channels/${server ? server : '@me'}/${channel}/${message}`);
             requestAnimationFrame(() => this.transitionTo(`/channels/${server ? server : '@me'}/${channel}/${message}`));
         }
