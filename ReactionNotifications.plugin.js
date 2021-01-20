@@ -5,7 +5,7 @@
  * @donate undefined
  * @patreon undefined
  * @website https://github.com/DaBLEshOT/ReactionNotifications
- * @source 
+ * @source https://github.com/DaBLEshOT/ReactionNotifications/blob/main/ReactionNotifications.plugin.js
  */
 /*@cc_on
 @if (@_jscript)
@@ -32,7 +32,7 @@
 @else@*/
 
 module.exports = (() => {
-    const config = {"info":{"name":"ReactionNotifications","authors":[{"name":"DaBLEshOT","discord_id":"145880086157983744","github_username":"DaBLEshOT"}],"version":"0.0.1","description":"Add notifications for reactions","github":"https://github.com/DaBLEshOT/ReactionNotifications","github_raw":""},"changelog":[{"title":"First release","items":["Initial build"]}],"main":"index.js"};
+    const config = {"info":{"name":"ReactionNotifications","authors":[{"name":"DaBLEshOT","discord_id":"145880086157983744","github_username":"DaBLEshOT"}],"version":"0.0.1","description":"Add notifications for reactions","github":"https://github.com/DaBLEshOT/ReactionNotifications","github_raw":"https://github.com/DaBLEshOT/ReactionNotifications/blob/main/ReactionNotifications.plugin.js"},"changelog":[{"title":"First release","items":["Initial build"]}],"main":"index.js"};
 
     return !global.ZeresPluginLibrary ? class {
         constructor() {this._config = config;}
@@ -57,7 +57,7 @@ module.exports = (() => {
     } : (([Plugin, Api]) => {
         const plugin = (Plugin, Library) => {
 
-    const { Logger, Patcher, WebpackModules, Toasts, DiscordAPI } = Library;
+    const { Logger, WebpackModules, DiscordAPI } = Library;
 
     return class ReactionNotifications extends Plugin {
         constructor() {
@@ -76,13 +76,6 @@ module.exports = (() => {
             this.users = DiscordAPI.users;
             this.currentUser = DiscordAPI.currentUser;
 
-            const notification = new Notification(`server channel (1 unread)`, { body: `neki`, silent: true });
-            let electron = WebpackModules.getByProps("setBadge");
-            //electron.setBadge(0);
-
-            //this.goToMessage("", "271708549569183746", "801187369641967646");
-            
-            //Patcher.after(WebpackModules.getByProps("dispatch"), "dispatch", this.dispatch);
             this.sound = WebpackModules.getByProps("playSound");
             this.cancelPatch = BdApi.monkeyPatch(WebpackModules.getByProps("dispatch"), "dispatch", { after: this.dispatch.bind(this) });
         }
@@ -101,20 +94,18 @@ module.exports = (() => {
                     const notification = new Notification(`Reaction`, { body: `${reactionUser.discordObject.username} reacted with ${emoji.name}`, silent: true });
                     notification.addEventListener("click", () => { this.goToMessage("", data.methodArguments[0].channelId, data.methodArguments[0].messageId) });
                     
-                    //Toasts.default(`<b>${reactionUser?.discordObject.username || ""}</b> reacted with ${emoji.name}`, {timeout: 5000});
                 }
             }
         }
 
         goToMessage(server, channel, message) {
-            require('plugins/ReactionNotifications/electron').remote.getCurrentWindow().focus();
+            require("plugins/ReactionNotifications/electron").remote.getCurrentWindow().focus();
             this.transitionTo(`/channels/${server ? server : '@me'}/${channel}/${message}`);
             requestAnimationFrame(() => this.transitionTo(`/channels/${server ? server : '@me'}/${channel}/${message}`));
         }
 
         onStop() {
             this.cancelPatch();
-            //Patcher.unpatchAll();
         }
     };
 
