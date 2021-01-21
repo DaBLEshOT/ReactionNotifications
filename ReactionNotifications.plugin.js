@@ -32,7 +32,7 @@
 @else@*/
 
 module.exports = (() => {
-    const config = {"info":{"name":"ReactionNotifications","authors":[{"name":"DaBLEshOT","discord_id":"145880086157983744","github_username":"DaBLEshOT"}],"version":"0.0.1","description":"Add notifications for reactions","github":"https://github.com/DaBLEshOT/ReactionNotifications","github_raw":"https://github.com/DaBLEshOT/ReactionNotifications/blob/main/ReactionNotifications.plugin.js"},"changelog":[{"title":"First release","items":["Initial build"]}],"main":"index.js"};
+    const config = {"info":{"name":"ReactionNotifications","authors":[{"name":"DaBLEshOT","discord_id":"145880086157983744","github_username":"DaBLEshOT"}],"version":"0.0.1","description":"Add notifications for reactions","github":"https://github.com/DaBLEshOT/ReactionNotifications","github_raw":"https://github.com/DaBLEshOT/ReactionNotifications/blob/main/ReactionNotifications.plugin.js"},"changelog":[{"title":"Added mute acknowledgement","items":["Respects muted server and channels","Notifications only for you own messages"]}],"main":"index.js"};
 
     return !global.ZeresPluginLibrary ? class {
         constructor() {this._config = config;}
@@ -63,42 +63,43 @@ module.exports = (() => {
         constructor() {
             super();
 
-            this.users = [];
-            this.currentUser = null
+            this.currentUser = DiscordAPI.currentUser.discordObject;
             
             this.cancelPatch = null;
             this.sound = WebpackModules.getByProps("playSound");
             this.transitionTo = WebpackModules.getByProps("transitionTo").transitionTo;
+            this.isMuted = WebpackModules.getByProps("isGuildOrCategoryOrChannelMuted").isGuildOrCategoryOrChannelMuted.bind(WebpackModules.getByProps("isGuildOrCategoryOrChannelMuted"));
+            this.getChannelById = WebpackModules.getByProps("getChannel").getChannel;
+            this.getMessageById = WebpackModules.getByProps("getMessage").getMessage;
         }
 
 
         onStart() {
-            this.users = DiscordAPI.users;
-            this.currentUser = DiscordAPI.currentUser;
-
             this.cancelPatch = BdApi.monkeyPatch(WebpackModules.getByProps("dispatch"), "dispatch", { after: this.dispatch.bind(this) });
         }
 
         dispatch(data) {
             if (data.methodArguments[0].type == "MESSAGE_REACTION_ADD") {
-                const messageUserId = data.methodArguments[0].userId;
-                const emoji = data.methodArguments[0].emoji;
-                
+                const reaction = data.methodArguments[0];
+                const channel = this.getChannelById(reaction.channelId);
+                const message = this.getMessageById(reaction.channelId, reaction.messageId);
 
-                if (messageUserId != this.currentUser.discordObject.id) {
-                    const reactionUser = this.users.find(user => user.discordObject.id == messageUserId);
+                if (!this.isMuted(channel.guild_id, channel.id) && message.author.id == this.currentUser.id && reaction.userId != this.currentUser.id) {
+                    const users = DiscordAPI.users;
+                    const reactionUser = users.find(user => user.discordObject.id == reaction.userId).discordObject;
                     this.sound.playSound("message1", 0.4);
 
+                    const emoji = reaction.emoji;
                     const notification = new Notification(
-                        `${reactionUser.discordObject.username} reacted with ${emoji.name}`,
+                        `${reactionUser.username} reacted with ${emoji.name}`,
                         {
                             body: "Click to see the message",
                             silent: true,
-                            icon: this.getAvatar(reactionUser.discordObject.id, reactionUser.discordObject.avatar)
+                            icon: this.getAvatar(reactionUser.id, reactionUser.avatar)
                         }
                     );
                     notification.addEventListener("click", () => {
-                        this.goToMessage("", data.methodArguments[0].channelId, data.methodArguments[0].messageId)
+                        this.goToMessage(channel.guild_id, channel.id, reaction.messageId);
                     });
                 }
             }
