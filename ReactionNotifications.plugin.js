@@ -1,9 +1,5 @@
 /**
  * @name ReactionNotifications
- * @invite undefined
- * @authorLink undefined
- * @donate undefined
- * @patreon undefined
  * @website https://github.com/DaBLEshOT/ReactionNotifications
  * @source https://github.com/DaBLEshOT/ReactionNotifications/blob/main/ReactionNotifications.plugin.js
  */
