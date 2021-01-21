@@ -28,7 +28,7 @@
 @else@*/
 
 module.exports = (() => {
-    const config = {"info":{"name":"ReactionNotifications","authors":[{"name":"DaBLEshOT","discord_id":"145880086157983744","github_username":"DaBLEshOT"}],"version":"0.0.1","description":"Add notifications for reactions","github":"https://github.com/DaBLEshOT/ReactionNotifications","github_raw":"https://github.com/DaBLEshOT/ReactionNotifications/blob/main/ReactionNotifications.plugin.js"},"changelog":[{"title":"Bugfix","type":"fixed","items":["Fixed bug where users wouldn't load sometimes"]}],"main":"index.js"};
+    const config = {"info":{"name":"ReactionNotifications","authors":[{"name":"DaBLEshOT","discord_id":"145880086157983744","github_username":"DaBLEshOT"}],"version":"0.0.2","description":"Add notifications for reactions","github":"https://github.com/DaBLEshOT/ReactionNotifications","github_raw":"https://github.com/DaBLEshOT/ReactionNotifications/blob/main/ReactionNotifications.plugin.js"},"changelog":[{"title":"Bugfix","type":"fixed","items":["Fixed bug where users wouldn't load sometimes"]},{"title":"Added","items":["Added toast notification when window is focused"]}],"main":"index.js"};
 
     return !global.ZeresPluginLibrary ? class {
         constructor() {this._config = config;}
@@ -52,15 +52,27 @@ module.exports = (() => {
         stop() {}
     } : (([Plugin, Api]) => {
         const plugin = (Plugin, Library) => {
+    const css = `.ReactionNotification-container {
+    pointer-events: auto;
+    cursor: pointer;
+    line-height: normal;
+}
 
-    const { WebpackModules, DiscordAPI } = Library;
+.ReactionNotification-secondary {
+    text-align: center;
+    color: #636363;
+    font-size: 10px;
+}`;
+    const { remote } = require("electron");
+
+    const { DiscordAPI, PluginUtilities, Toasts, WebpackModules } = Library;
 
     return class ReactionNotifications extends Plugin {
         constructor() {
             super();
 
             this.currentUser = DiscordAPI.currentUser.discordObject;
-            
+
             this.cancelPatch = null;
             this.sound = WebpackModules.getByProps("playSound");
             this.transitionTo = WebpackModules.getByProps("transitionTo").transitionTo;
@@ -71,6 +83,7 @@ module.exports = (() => {
         }
 
         onStart() {
+            PluginUtilities.addStyle(this.getName(), css)
             this.cancelPatch = BdApi.monkeyPatch(WebpackModules.getByProps("dispatch"), "dispatch", { after: this.dispatch.bind(this) });
         }
 
@@ -81,27 +94,57 @@ module.exports = (() => {
                 const message = this.getMessageById(reaction.channelId, reaction.messageId);
 
                 if (!this.isMuted(channel.guild_id, channel.id) && message.author.id == this.currentUser.id && reaction.userId != this.currentUser.id) {
-                    const reactionUser = this.getUserById(reaction.userId);
+                    const currentChannel = DiscordAPI.currentChannel?.discordObject || { id: "" };
 
-                    const notification = new Notification(
-                        `${reactionUser.username} reacted with ${reaction.emoji.name}`,
-                        {
-                            body: "Click to see the message",
-                            silent: true,
-                            icon: this.getAvatar(reactionUser.id, reactionUser.avatar)
-                        }
-                    );
-                    notification.addEventListener("click", () => {
-                        this.goToMessage(channel.guild_id, channel.id, reaction.messageId);
-                    });
-                    
+                    if (!remote.getCurrentWindow().isFocused()) {
+                        this.showDesktopNotification(channel, reaction);
+                    } else if (currentChannel.id != message.channel_id) {
+                        this.showToastNotification(channel, reaction);
+                    }
+
                     this.sound.playSound("message1", 0.4);
                 }
             }
         }
 
+        showDesktopNotification(channel, reaction) {
+            const reactionUser = this.getUserById(reaction.userId);
+
+            const notification = new Notification(
+                `${reactionUser.username} reacted with ${reaction.emoji.name}`,
+                {
+                    body: "Click to see the message",
+                    silent: true,
+                    icon: this.getAvatar(reactionUser.id, reactionUser.avatar)
+                }
+            );
+
+            notification.addEventListener("click", () => {
+                this.goToMessage(channel.guild_id, channel.id, reaction.messageId);
+            });
+        }
+
+        showToastNotification(channel, reaction) {
+            const reactionUser = this.getUserById(reaction.userId);
+
+            const content = `<div class="ReactionNotification-container">
+                                <div><b>${reactionUser.username}</b> reacted with ${reaction.emoji.name}</div>
+                                <div class="ReactionNotification-secondary">Click to see the message</div>
+                            </div>`;
+
+            Toasts.default(content, { timeout: 5000 });
+
+            const toast = document.querySelector(".ReactionNotification-container");
+            toast.addEventListener("click", () => {
+                this.goToMessage(channel.guild_id, channel.id, reaction.messageId);
+
+                toast.parentElement.parentElement.classList.add("closing");
+            });
+        }
+
         goToMessage(server, channel, message) {
-            require("electron").remote.getCurrentWindow().focus();
+            remote.getCurrentWindow().focus();
+
             this.transitionTo(`/channels/${server ? server : '@me'}/${channel}/${message}`);
             requestAnimationFrame(() => this.transitionTo(`/channels/${server ? server : '@me'}/${channel}/${message}`));
         }
@@ -112,6 +155,7 @@ module.exports = (() => {
 
         onStop() {
             this.cancelPatch();
+            PluginUtilities.removeStyle(this.getName());
         }
     };
 
