@@ -32,7 +32,7 @@
 @else@*/
 
 module.exports = (() => {
-    const config = {"info":{"name":"ReactionNotifications","authors":[{"name":"DaBLEshOT","discord_id":"145880086157983744","github_username":"DaBLEshOT"}],"version":"0.0.1","description":"Add notifications for reactions","github":"https://github.com/DaBLEshOT/ReactionNotifications","github_raw":"https://github.com/DaBLEshOT/ReactionNotifications/blob/main/ReactionNotifications.plugin.js"},"changelog":[{"title":"Added mute acknowledgement","items":["Respects muted server and channels","Notifications only for you own messages"]}],"main":"index.js"};
+    const config = {"info":{"name":"ReactionNotifications","authors":[{"name":"DaBLEshOT","discord_id":"145880086157983744","github_username":"DaBLEshOT"}],"version":"0.0.1","description":"Add notifications for reactions","github":"https://github.com/DaBLEshOT/ReactionNotifications","github_raw":"https://github.com/DaBLEshOT/ReactionNotifications/blob/main/ReactionNotifications.plugin.js"},"changelog":[{"title":"Bugfix","type":"fixed","items":["Fixed bug where users wouldn't load sometimes"]}],"main":"index.js"};
 
     return !global.ZeresPluginLibrary ? class {
         constructor() {this._config = config;}
@@ -71,8 +71,8 @@ module.exports = (() => {
             this.isMuted = WebpackModules.getByProps("isGuildOrCategoryOrChannelMuted").isGuildOrCategoryOrChannelMuted.bind(WebpackModules.getByProps("isGuildOrCategoryOrChannelMuted"));
             this.getChannelById = WebpackModules.getByProps("getChannel").getChannel;
             this.getMessageById = WebpackModules.getByProps("getMessage").getMessage;
+            this.getUserById = WebpackModules.getByProps("getUser").getUser;
         }
-
 
         onStart() {
             this.cancelPatch = BdApi.monkeyPatch(WebpackModules.getByProps("dispatch"), "dispatch", { after: this.dispatch.bind(this) });
@@ -85,13 +85,10 @@ module.exports = (() => {
                 const message = this.getMessageById(reaction.channelId, reaction.messageId);
 
                 if (!this.isMuted(channel.guild_id, channel.id) && message.author.id == this.currentUser.id && reaction.userId != this.currentUser.id) {
-                    const users = DiscordAPI.users;
-                    const reactionUser = users.find(user => user.discordObject.id == reaction.userId).discordObject;
-                    this.sound.playSound("message1", 0.4);
+                    const reactionUser = this.getUserById(reaction.userId);
 
-                    const emoji = reaction.emoji;
                     const notification = new Notification(
-                        `${reactionUser.username} reacted with ${emoji.name}`,
+                        `${reactionUser.username} reacted with ${reaction.emoji.name}`,
                         {
                             body: "Click to see the message",
                             silent: true,
@@ -101,6 +98,8 @@ module.exports = (() => {
                     notification.addEventListener("click", () => {
                         this.goToMessage(channel.guild_id, channel.id, reaction.messageId);
                     });
+                    
+                    this.sound.playSound("message1", 0.4);
                 }
             }
         }
